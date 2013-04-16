@@ -33,6 +33,7 @@ import org.apache.wicket.markup.repeater.AbstractRepeater;
 import org.apache.wicket.model.IModel;
 import org.apache.wicket.model.Model;
 import org.apache.wicket.request.IRequestHandler;
+import org.apache.wicket.request.Url;
 import org.apache.wicket.request.cycle.RequestCycle;
 import org.apache.wicket.request.resource.CssResourceReference;
 import org.apache.wicket.request.resource.JavaScriptResourceReference;
@@ -1080,25 +1081,37 @@ public class ModalWindow extends Panel
 			{
 				throw new WicketRuntimeException("Error creating page for modal dialog.");
 			}
-			CharSequence pageUrl = null;
+			CharSequence pageUrl, ie8_pageUrl;
 			RequestCycle requestCycle = RequestCycle.get();
+
+			// HACK saving off the original Url so the ie_8 url can be evaluated relative to the tab
+			// and not the page. This is because in ie_7 and ie_8 the embedded modals are not
+			// correctly being recognized by the browser.
+			// See WICKET-5071
+			Url originalUrl = requestCycle.getUrlRenderer().getBaseUrl();
 
 			if (page.isPageStateless())
 			{
 				pageUrl = requestCycle.urlFor(page.getClass(), page.getPageParameters());
-				appendAssignment(buffer, "settings.ie8_src", pageUrl);
+
+				requestCycle.getUrlRenderer().setBaseUrl(new Url());
+				ie8_pageUrl = requestCycle.urlFor(page.getClass(), page.getPageParameters());
+				requestCycle.getUrlRenderer().setBaseUrl(originalUrl);
 			}
 			else
 			{
 				IRequestHandler handler = new RenderPageRequestHandler(new PageProvider(page));
 
 				pageUrl = requestCycle.urlFor(handler);
-				String ie8_pageUrl = requestCycle.getUrlRenderer().renderRelativeUrl(
+
+				requestCycle.getUrlRenderer().setBaseUrl(new Url());
+				ie8_pageUrl = requestCycle.getUrlRenderer().renderRelativeUrl(
 					requestCycle.mapUrlFor(handler));
-				appendAssignment(buffer, "settings.ie8_src", ie8_pageUrl);
+				requestCycle.getUrlRenderer().setBaseUrl(originalUrl);
 			}
 
 			appendAssignment(buffer, "settings.src", pageUrl);
+			appendAssignment(buffer, "settings.ie8_src", ie8_pageUrl.subSequence(1, ie8_pageUrl.length()));
 		}
 		else
 		{
